@@ -89,7 +89,7 @@ def simplify_pattern(curve, decimation=256, sos=butter(4, 0.01, output='sos')):
     decimated_curve = filtered_curve.compress(indexes)
     return decimated_curve
 
-def detect_peaks(correlation, threshold=0.9, min_gap=1, keep='max'):
+def detect_peaks(correlation, correlation_bis, threshold=0.8, min_gap=200):
     """Detects peaks in a correlation result.
     
        Consecutive high values are omitted if the gap between the index is
@@ -99,36 +99,42 @@ def detect_peaks(correlation, threshold=0.9, min_gap=1, keep='max'):
        consecutively.
        
        Args
-           - correlation (numpy.array): the correlation result.
+           - correlation (numpy.array): the correlation result from pattern.
+           - correlation_bis (numpy.array): the correlation result from pattern_bis.
        
        Kwargs
            - threshold (float): the threshold above which a peak can be detected.
            - min_gap (int): the minimum distance between two peaks (default to 1).
-           - keep (str): can be one in ('max','first','last') which respectively
-             keeps the sample corresponding to the maximum value of the interval,
-             keeps the first sample from the interval, keeps the last sample from
-             the interval.
        
        Returns
            A list of peak abscissas.
        """
     detected_peaks = np.where(correlation>threshold)[0]
+    detected_peaks2 = np.where(correlation_bis>threshold)[0]
     if len(detected_peaks) == 0:
-        return []
+        res = []
     else:
-        current_max = 0
         res = [detected_peaks[0]]
-        for p in detected_peaks[1:]:
-            if (p-res[-1]) > min_gap:
-                res.append(p)
-                current_max = correlation[p]
-            else: # we are in an interval of consecutive samples reaching threshold
-                if keep == 'last':
-                    res[-1] = p
-                elif keep == 'max' and correlation[p] > current_max:
-                    res[-1] = p
-                    current_max = correlation[p]
-    return res
+        for i in range(1, len(detected_peaks)):
+            if detected_peaks[i] - res[-1] < min_gap:
+                if detected_peaks[i] > res[-1]:
+                    res[-1] = detected_peaks[i]
+                continue
+            res = np.concatenate((res, detected_peaks[i:i+1]))
+
+    if len(detected_peaks2) == 0:
+        res2 = []
+    else:
+        res2 = [detected_peaks2[0]]
+        for i in range(1, len(detected_peaks2)):
+            if detected_peaks2[i] - res2[-1] < min_gap:
+                if detected_peaks2[i] > res2[-1]:
+                    res2[-1] = detected_peaks2[i]
+                continue
+            res2 = np.concatenate((res2, detected_peaks2[i:i+1]))
+    
+
+    return res, res2
 
 def detect_first_peak(pcc,peaks,wrange=20):
     """Compute the first (undetected) peak when he is smaller than the others.
