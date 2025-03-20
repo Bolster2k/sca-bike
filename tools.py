@@ -199,3 +199,42 @@ def detect_first_peak(pcc,peaks,wrange=20):
     window = np.abs(pcc)[peaks[0]-min_interval-wrange:peaks[0]-min_interval+wrange]
     first_peak = peaks[0]-min_interval-wrange+np.argmax(window)
     return first_peak
+
+def sync_inner_patterns(patterns, pattern_length, confirm = 10, threshold=-14.0, tweaks={}):
+    """Performs a fine-grained synchronization on roughly splitted inner-iteration patterns.
+    
+       The first point below  a given threshold is used as a synchronization point.
+       Since some noise may occur during the low-activity prelude, we use a `confirm` parameter
+       to ensure that the detected low peak has a corresponding high peak within a few samples (the
+       number being defined by this parameter)
+       Also, for the first iteration of each `h_i`, the pattern is quite difference and the threshold must be adapted. 
+    
+       Args
+           - patterns (list): list of sub-curves corresponding to inner-iterations.
+           - pattern_length (integer): since the en of the pattern is useless, the synchronization is perfomed by reducing
+               the size of the patterns. In order to have patterns of the same length, this parameter controls the
+               number of kept samples.
+       
+       Kwargs
+           - confirm (int): number of samples after a low-peak when a corresponding high-peak must occur.
+           - threshold (float): the low point used for synchronization is the first one below this threshold.
+           - tweaks (dict): each entry of `tweaks` parameter must be composed of an integer key corresponding to
+               an index in the `patterns` list and a floating-point value corresponding to the adapted
+               threshold that should be used.
+       
+       Returns
+           A numpy array of all synchronized patterns shorten by `shorten` points.
+    """
+    res = []
+    for i in range(len(patterns)):
+        used_threshold = threshold
+        if i in tweaks:
+            used_threshold = tweaks[i]
+        for offset in np.where(patterns[i][:]<used_threshold)[0]:
+            if np.any(patterns[i][offset:offset+confirm]>-used_threshold):
+                break
+        res.append(patterns[i][offset:offset+pattern_length])
+
+    res = np.array(res,dtype=float)
+    return res
+    
