@@ -2,3 +2,4 @@ data
 tmp
 .venv
 __pycache__
+to_zip*
